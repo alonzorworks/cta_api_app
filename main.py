@@ -19,6 +19,14 @@ import urllib.request as urlrq
 import certifi
 import ssl
 ssl._create_default_https_context = ssl._create_unverified_context
+import io # Will Help us utilize CTA API to connect to Autorefreshed CSV
+
+# CTA Stops is an API Key That Does Not Need a key to access
+cta_train_stops = requests.get("https://data.cityofchicago.org/resource/8pix-ypme.csv")
+cta_train_stops = cta_train_stops.content
+df = pd.read_csv(io.StringIO(cta_train_stops.decode("utf-8")))
+
+df
 
 # Now Timestamp 
 now = dt.datetime.now()
@@ -98,22 +106,38 @@ def retrieve_cta_train_json(api_key, mapid):
     
     return base_url
 
+def retrieve_cta_route_alerts_all():
+    """No credentials are needed."""
+    base_url = "https://www.transitchicago.com/api/1.0/alerts.aspx?outputType=JSON"
+    return base_url
+
+def retrieve_cta_route_alerts_specified(route_id):
+    """No credentials are needed."""
+    base_url = f"https://www.transitchicago.com/api/1.0/alerts.aspx?routeid={route_id}&outputType=JSON"
+    return base_url
+
+# TRAVEL APIs ================================================================================================ 🚌🚇
+# Bus API
 st.subheader("Bus JSON")
 # TO get this working we need to use two functions
 # retrieve_cta_bus_json
 # get_json_from_link
 base_bus_json_prep_link = retrieve_cta_bus_json(cta_bus_tracker_key, "77")
 baseline_bus = get_json_from_link(base_bus_json_prep_link)
-st.write(baseline_bus)
+st.write(baseline_bus, unsafe_allow_html= True)
 
 
-
+# Train API
 st.subheader("Train JSON")
 base_train_json_prep_link = retrieve_cta_train_json(cta_train_tracker_key, "40190")
 baseline_train = get_json_from_link(base_train_json_prep_link)
-st.write(baseline_train)
+st.write(baseline_train, unsafe_allow_html= True)
 
-
+# General API
+st.subheader("Directions API")
+base_alert_json_prep_link = retrieve_cta_route_alerts_all()
+baseline_alert = get_json_from_link(base_alert_json_prep_link)
+st.write(baseline_alert, unsafe_allow_html= True)
 
 
 
@@ -431,7 +455,7 @@ Things to do next.
 4. Explore CTA bus and train APIs and documentation. (Postponed)
 
 # IMPORTANT NEW NOTE 3/4/24 -3/7/24 
-1. Explore bus/train documentation ✅
+1. Explore bus/train documentation ✅ \n
 1B. Add CTA detail alert API
 2. Obtain list of bus/train routes used
 3. Check the list of routes impacted by delays 
@@ -444,7 +468,41 @@ https://www.transitchicago.com/developers/alerts/
 
 """
 
+"""
+Second Page Filter for Alerts
+ 1-19 Accessibility and informational alerts
+This range includes alerts related to accessible paths, as well as special notes about service and
+information about added service.
+ 20-39 Planned/anticipated events affecting bus and train service
+This range includes notices about planned work, service changes and reroutes that are
+anticipated (parade reroutes, for example) which potentially affect all users of a named service.
+ 40-59 Minor delays and reroutes affecting bus and train service
+This range includes notices about unanticipated minor delays and reroutes that affect all users of
+a named service.
+ 60-79 Significant delays and reroutes affecting bus and train service
+This range includes notices about unanticipated significant delays (sporadic or consistent) and
+reroutes that affect all users of a named service.
+ 80-99 Major delays and service disruptions
+This range includes alerts about unanticipated major delays and service disruptions where a
+service is significantly impacted by an event, and considering service alternatives may be
+advisable
 
+
+type 
+Valid values for “type” include:
+ bus
+ rail
+ station
+ systemwide
+Specify any combination by separating multiple
+terms with commas (no spaces). Default is
+“bus,rail,systemwide”.
+
+Chicago Data Portal 
+https://data.cityofchicago.org/Transportation/CTA-System-Information-List-of-L-Stops/8pix-ypme/about_data
+
+
+"""
 
 
 
