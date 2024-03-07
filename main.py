@@ -10,14 +10,111 @@ import googlemaps
 import datetime as dt 
 import json
 import urllib
+from urllib.request import urlopen
 import json
-from config import google_map_key
+from config import google_map_key, cta_bus_tracker_key, cta_train_tracker_key
+import requests
+#Contigency url import
+import urllib.request as urlrq
+import certifi
+import ssl
+ssl._create_default_https_context = ssl._create_unverified_context
 
 # Now Timestamp 
 now = dt.datetime.now()
 
 # Lat is North and South. Long is east and west. Latitude comes first.
 chicago_coordinates = (41.87, 87.62)
+
+# Obselete code that only worked for propper SSL certificates
+# def get_json_from_link(url):
+#     """Can turn link into a readable JSON format."""
+    
+#     #Good code preserved =======
+#     ssl._create_default_https_context = ssl._create_unverified_context
+    
+#     response = urlopen(url)
+#     data = response.read().decode("utf-8")
+#     return json.loads(data)
+    #Preserve==========
+    
+   
+    
+
+# Better king 👑
+def get_json_from_link(url):
+    """Can turn link into a readable JSON format."""
+    # Create a custom context that allows all ciphers
+    ctx = ssl.create_default_context()
+    ctx.set_ciphers('DEFAULT:@SECLEVEL=0')
+
+    # Open the URL with the custom context
+    with urlopen(url, context=ctx) as response:
+        data = response.read().decode("utf-8")
+
+    return json.loads(data)
+
+# Create Requests for CTA API Function
+def retrieve_cta_bus_json(api_key, bus_route_number):
+    """Can use api key to get the JSON with all information available.
+    The bus number can be a single one. Or it can be a list of strings. 
+    I.E 'X1,X2' these must be concactenated into one string seperated by commas.
+    """
+    base_url = f"https://www.ctabustracker.com/bustime/api/v2/getvehicles?key={api_key}&rt={bus_route_number}&format=json"
+    #base_url = f"http://www.ctabustracker.com/bustime/api/v2/gettime?key={api_key}&format=json"
+    
+    # Example route instead of the variable (verified to work)
+    #base_url = f"https://www.ctabustracker.com/bustime/api/v2/getvehicles?key={api_key}&rt=77&format=json"
+        
+    return base_url 
+
+
+def retrieve_cta_train_json(api_key, mapid):
+    """Need to have the Stop ID. This encompasses the rt and final destination. Need to use a table to get the number.
+    
+    Stop ID is an integer with 5 numbers. 
+    
+    XXXXX = Starting Train Stop (End of The Line)
+    
+    Need to have from the google api key
+    
+    "rt":"Red Line"
+    "destNm":"Howard"
+    Basically only need the delay boolean 
+    "isDly"
+    
+    
+    Sample URL:
+    http://lapi.transitchicago.com/api/1.0/ttarrivals.aspx?key=a8456djbhf8475683jf7818bha81&mapid=40380&max=5
+    
+    
+    """
+    
+    
+    
+    # base_url = f"https://lapi.transitchicago.com/api/1.0/ttarrivals.aspx?key={api_key}&stpid=40190"
+    base_url = f"https://lapi.transitchicago.com/api/1.0/ttarrivals.aspx?key={api_key}&mapid={mapid}&outputType=JSON"
+    
+    
+    return base_url
+
+st.subheader("Bus JSON")
+# TO get this working we need to use two functions
+# retrieve_cta_bus_json
+# get_json_from_link
+base_bus_json_prep_link = retrieve_cta_bus_json(cta_bus_tracker_key, "77")
+baseline_bus = get_json_from_link(base_bus_json_prep_link)
+st.write(baseline_bus)
+
+
+
+st.subheader("Train JSON")
+base_train_json_prep_link = retrieve_cta_train_json(cta_train_tracker_key, "40190")
+baseline_train = get_json_from_link(base_train_json_prep_link)
+st.write(baseline_train)
+
+
+
 
 
 gmaps = googlemaps.Client(key= google_map_key)
@@ -333,12 +430,18 @@ Things to do next.
 3. Embellish instructions of the steps that involve bus or train. ✅
 4. Explore CTA bus and train APIs and documentation. (Postponed)
 
-# IMPORTANT NEW NOTE 3/4/24
-1. Explore bus/train documentation 
+# IMPORTANT NEW NOTE 3/4/24 -3/7/24 
+1. Explore bus/train documentation ✅
+1B. Add CTA detail alert API
 2. Obtain list of bus/train routes used
 3. Check the list of routes impacted by delays 
 4. Show affected routes and details about the impact. Also have a section where users can see non-pertinent impacted routes.
 5. Work on mapping.
+
+Alert API Documentation
+https://www.transitchicago.com/developers/alerts/
+
+
 """
 
 
