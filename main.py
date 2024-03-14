@@ -20,19 +20,41 @@ import certifi
 import ssl
 ssl._create_default_https_context = ssl._create_unverified_context
 import io # Will Help us utilize CTA API to connect to Autorefreshed CSV
+from ipywidgets import embed
+import gmplot
+import tempfile
+from distutils.version import StrictVersion
+from streamlit_folium import st_folium
 
-# CTA Stops is an API Key That Does Not Need a key to access
+st.set_option('deprecation.showPyplotGlobalUse', False)
+
+# CTA Train Stops is an API That Does Not Need a key to access
 cta_train_stops = requests.get("https://data.cityofchicago.org/resource/8pix-ypme.csv")
 cta_train_stops = cta_train_stops.content
-df = pd.read_csv(io.StringIO(cta_train_stops.decode("utf-8")))
+df_train = pd.read_csv(io.StringIO(cta_train_stops.decode("utf-8")))
 
-df
+st.subheader("Train Data")
+df_train
+
+# df_train_unique = df_train.copy()
+# df_train_unique = df_train_unique.drop_duplicates("stop_name")
+# df_train_unique
+
+# CTA Bus Stops No Key Needed
+cta_bus_stops = requests.get("https://data.cityofchicago.org/resource/qs84-j7wh.csv")
+cta_bus_stops = cta_bus_stops.content
+df_bus = pd.read_csv(io.StringIO(cta_bus_stops.decode("utf-8")))
+
+st.subheader("Bus Data")
+df_bus
+
+
 
 # Now Timestamp 
 now = dt.datetime.now()
 
 # Lat is North and South. Long is east and west. Latitude comes first.
-chicago_coordinates = (41.87, 87.62)
+chicago_coordinates = (41.8781, -87.6298)
 
 # Obselete code that only worked for propper SSL certificates
 # def get_json_from_link(url):
@@ -51,7 +73,7 @@ chicago_coordinates = (41.87, 87.62)
 
 # Better king 👑
 def get_json_from_link(url):
-    """Can turn link into a readable JSON format."""
+    """Can turn link into a readable JSON format. Actually returns a dictionary that can be converted into a JSON."""
     # Create a custom context that allows all ciphers
     ctx = ssl.create_default_context()
     ctx.set_ciphers('DEFAULT:@SECLEVEL=0')
@@ -134,12 +156,15 @@ baseline_train = get_json_from_link(base_train_json_prep_link)
 st.write(baseline_train, unsafe_allow_html= True)
 
 # General API
-st.subheader("Directions API")
+st.subheader("CTA Alert JSON")
 base_alert_json_prep_link = retrieve_cta_route_alerts_all()
 baseline_alert = get_json_from_link(base_alert_json_prep_link)
+
+# Will Use Prep For the Final JSON load
+baseline_alert_prep = json.dumps(baseline_alert)
+
+
 st.write(baseline_alert, unsafe_allow_html= True)
-
-
 
 gmaps = googlemaps.Client(key= google_map_key)
 
@@ -147,6 +172,7 @@ gmaps = googlemaps.Client(key= google_map_key)
 geocode_result = gmaps.geocode('1600 Amphitheatre Parkway, Mountain View, CA')
 
 st.title("CTA Project 🚄🚆🚌🚇🚍")
+st.subheader("CTA Directions JSON")
 
 # Default directions except driving is now transit location Australia 
 directions_result = gmaps.directions("Sydney Town Hall",
@@ -180,11 +206,12 @@ end_address = json.loads(directions_json)[0]["legs"][0]["end_address"]
 # Testing areas ============================================
 st.write(json.loads(directions_json)[0]["legs"][0])
 
+st.subheader("Important Steps JSON")
 st.write(json.loads(directions_json))
 
 # Need Steps 
+st.subheader("Route Step JSON")
 route_steps = json.loads(directions_json)[0]["legs"][0]["steps"] 
-
 st.write(route_steps)
 
 # Basic Instructions 
@@ -241,10 +268,27 @@ def get_travel_information():
     
     return step_travel_method, step_instruction, step_distance, step_duration, step_start_lat, step_start_lng, step_end_lat, step_end_lng, step_instruction_detail, step_instruction_detail_distance, step_instruction_detail_duration
     
+# Data Dictionary 📙
+route_dict = {
+    "step": [],
+    "curr_step": [],
+    "formatted_step": [],
+    "travel_method": [],
+    "travel_method_detail": [],
+    "distance" : [],
+    "step_start_lat": [],
+    "step_start_lng" : [],
+    "step_end_lat" : [],
+    "step_end_lng" : []
+}
+
+# Need to have a list of bus and train identifiers to get the 
+# MARKER
+train_routes = []
+bus_routes = []
 
 
-
-
+st.divider()
 # Now we can make the for loop utilizing the logic that we ironed out earlier 
 for num in range(num_steps):
     # There are multiple sets of steps separated by lists for the complete instructions 
@@ -265,7 +309,7 @@ for num in range(num_steps):
     # It appears that detail comes before the simple direction.
     # Code below does not iterate over the detailed
     #step_instruction_detail = json.loads(directions_json)[0]["legs"][0]["steps"][0]["steps"][num]["html_instructions"]
-    step_instruction_detail = json.loads(directions_json)[0]["legs"][0]["steps"][0]["steps"][num]["html_instructions"]
+    #step_instruction_detail = json.loads(directions_json)[0]["legs"][0]["steps"][0]["steps"][num]["html_instructions"]
     step_instruction_detail = json.loads(directions_json)[0]["legs"][0]["steps"][num]["html_instructions"]
     
     
@@ -301,8 +345,34 @@ for num in range(num_steps):
     
     formatted_step = f"({curr_step}/{num_steps})"
     
-    # Tells if the person is walking, taking the bus, or subway
+    # Tells if the person is walking, taking the bus, or subway given in all caps
     travel_mode = json.loads(directions_json)[0]["legs"][0]["steps"][num]["travel_mode"]
+    
+    try:
+        travel_mode_detail = json.loads(directions_json)[0]["legs"][0]["steps"][num]["transit_details"]["line"]["vehicle"]["type"]
+    except KeyError:
+        travel_mode_detail = "WALK"
+        
+        
+    # This is a NEW section.==============================
+    # This is where we can add the bus or train route.
+    # Having this will enable us to plot check for alerts for instructions that involve CTA vehicles.
+    # REMEMBER we must try to avoid errors for walking instructions.
+    # Public transportation is furnished with additional fields 
+    try:
+        if json.loads(directions_json)[0]["legs"][0]["steps"][num]["transit_details"]["line"]["vehicle"]["type"] == "BUS":
+                short_route_name = json.loads(directions_json)[0]["legs"][0]["steps"][num]["transit_details"]["line"]["short_name"]
+                bus_routes.append(short_route_name)
+        elif json.loads(directions_json)[0]["legs"][0]["steps"][num]["transit_details"]["line"]["vehicle"]["type"] == "SUBWAY":
+            short_route_name = json.loads(directions_json)[0]["legs"][0]["steps"][num]["transit_details"]["line"]["name"]
+            # We need to get the first word which indicates the color of the train station. 
+            # We need 'Red' not 'Red Line' therefore we split it.
+            train_routes.append(short_route_name.split(" ", 1)[0])
+    except:
+        pass
+        
+    
+    
     
     #Good code
     
@@ -394,7 +464,21 @@ for num in range(num_steps):
             st.write(f"""[🚉] Take the {route_vehicle_type} line {specific_route_and_destination} from {departure_stop_name} to {arrival_stop_name}.
                  You should leave at {departure_time} and arrive at {arrival_time}. The trip should take about {route_duration}. There are :green[{number_of_stops}] stops.""")
             
-            
+
+    # Add to Dictionaries.
+    route_dict["step"].append(num)
+    route_dict["curr_step"].append(curr_step)
+    route_dict["formatted_step"].append(formatted_step)
+    route_dict["travel_method"].append(travel_mode)
+    route_dict["travel_method_detail"].append(travel_mode_detail)
+    route_dict["distance"].append(step_distance)
+    route_dict["step_start_lat"].append(step_start_lat)
+    route_dict["step_start_lng"].append(step_start_lng)
+    route_dict["step_end_lat"].append(step_end_lat)
+    route_dict["step_end_lng"].append(step_end_lng)
+    
+    
+    
         # st.info(number_of_stops)
         # st.success("Public Transportation")
     
@@ -424,10 +508,349 @@ for num in range(num_steps):
     
     # Now we can try 
 
+st.divider()
+
+st.write(route_dict)
+
+start_location_lat = json.loads(directions_json)[0]["legs"][0]["start_location"]["lat"]
+start_location_lng = json.loads(directions_json)[0]["legs"][0]["start_location"]["lng"]
+
+end_location_lat = json.loads(directions_json)[0]["legs"][0]["end_location"]["lat"]
+end_location_lng = json.loads(directions_json)[0]["legs"][0]["end_location"]["lng"]
+
+
+
+gmap = gmplot.GoogleMapPlotter(chicago_coordinates[0], chicago_coordinates[1], apikey= google_map_key, zoom = 14)
+gmap.directions(
+    (start_location_lat, start_location_lng),
+    (end_location_lat, end_location_lng),
+    travel_mode = "TRANSIT"
+    
+)
+
+gmap.draw("map.html")
+
+# Read the HTML file contents
+with open("map.html", "r") as f:
+    html_contents = f.read()
+
+# Display the HTML file in Streamlit
+#st.components.v1.html(html_contents, height=600)
+
+# Display the HTML file in Streamlit using st.markdown
+st.markdown(html_contents, unsafe_allow_html=True)
+
+# Folium Mapmaking
+
+st.write(route_dict["travel_method"])
+
+m = folium.Map(location= (chicago_coordinates[0], chicago_coordinates[1]), zoom_start= 11)
+
+def map_path(route_dict = route_dict):
+    
+    coordinate_list = []
+    
+    # Get the list of coordinates from the dictionary
+    # Can get the number of entires in the dictionary lists which are all equal in number 
+    num_entries = len(route_dict["step"])
+    
+    for entry in range(num_entries):
+        if route_dict["travel_method"][entry] == "BUS":
+            st.write("Yes")
+        
+            folium.Marker([route_dict["step_start_lat"][entry], 
+                            route_dict["step_start_lng"][entry]],
+                            popup=('Bus Station{} \n '.format(route_dict["formatted_step"][entry]))
+                            ,icon = folium.Icon(color='blue',icon_color='white',prefix='fa', icon='bus')
+                            ).add_to(m)
+            
+        return
+
+num_entries = len(route_dict["step"])
+
+# Preperation for Polyline
+list_of_coord = []
+
+# Need to make a list of list 
+# Each list should contain coordinates the start coordinate longitude and latitude
+# One list for the starting point a second for the end point
+# Of course we iterate through the dictionary
+
+st.write(route_dict["travel_method_detail"])
+
+# Creates a List of Tuples for Plotting Lines
+for coord in range(num_entries):
+    list_of_coord.append(tuple((route_dict["step_start_lat"][coord], route_dict["step_start_lng"][coord])))
+    list_of_coord.append(tuple((route_dict["step_end_lat"][coord], route_dict["step_end_lng"][coord])))    
+
+# Plots the lines between the points
+folium.PolyLine(list_of_coord,
+                color='black',
+                dash_array='10').add_to(m)
+
+
+for entry in range(num_entries):
+    if route_dict["travel_method_detail"][entry] == "BUS":
+        
+        folium.Marker([route_dict["step_start_lat"][entry], 
+                        route_dict["step_start_lng"][entry]],
+                        popup=('Bus Station{} \n '.format(route_dict["formatted_step"][entry]) + " " + route_dict["distance"][entry] + " start of step.")
+                        ,icon = folium.Icon(color='blue',icon_color='white',prefix='fa', icon='bus', opacity = 0.7)
+                        ).add_to(m)
+        
+        
+        folium.Marker([route_dict["step_end_lat"][entry], 
+                        route_dict["step_end_lng"][entry]],
+                        popup=('Bus Station{} \n '.format(route_dict["formatted_step"][entry]) + " " + route_dict["distance"][entry] + " end of step.")
+                        ,icon = folium.Icon(color='blue',icon_color='#34252F',prefix='fa', icon='bus', opacity = 0.7)
+                        ).add_to(m)
+        
+    elif route_dict["travel_method_detail"][entry] == "SUBWAY":
+        
+        folium.Marker([route_dict["step_start_lat"][entry], 
+                        route_dict["step_start_lng"][entry]],
+                        popup=('Train Station{} \n '.format(route_dict["formatted_step"][entry]) + " " + route_dict["distance"][entry] + " start of step.")
+                        ,icon = folium.Icon(color='red',icon_color='white',prefix='fa', icon='train', opacity = 0.7)
+                        ).add_to(m)
+        
+        
+        folium.Marker([route_dict["step_end_lat"][entry], 
+                        route_dict["step_end_lng"][entry]],
+                        popup=('Train Station{} \n '.format(route_dict["formatted_step"][entry]) + " " + route_dict["distance"][entry] + " end of step.")
+                        ,icon = folium.Icon(color='red',icon_color='#34252F',prefix='fa', icon='train', opacity = 0.7)
+                        ).add_to(m)
+        
+    elif route_dict["travel_method_detail"][entry] == "WALK":
+        
+        folium.Marker([route_dict["step_start_lat"][entry], 
+                        route_dict["step_start_lng"][entry]],
+                        popup=('Walk{} \n '.format(route_dict["formatted_step"][entry]) + " " + route_dict["distance"][entry] + " start of step.")
+                        ,icon = folium.Icon(color='lightgray',icon_color='white',prefix='fa', icon='user', opacity = 0.7)
+                        ).add_to(m)
+        
+        
+        folium.Marker([route_dict["step_end_lat"][entry], 
+                        route_dict["step_end_lng"][entry]],
+                        popup=('Walk{} \n '.format(route_dict["formatted_step"][entry]) + " " + route_dict["distance"][entry] + " end of step.")
+                        ,icon = folium.Icon(color='lightgray',icon_color='#34252F',prefix='fa', icon='user', opacity = 0.7)
+                        ).add_to(m)
+        
+
+
+st.header("Map Making 🌎🗾")
+st_folium(m, width= 500)
 
 
 
 
+
+# Train ServiceId is the color of the line service id for redline is 'Red'
+# Need the JSON path to the color
+# ServiceType is either a B or T for bus or train
+# Iterate over JSON listings with all bus and train routes 
+# Can even seperate the bus and train iterations for effiencies 
+# Service ID for the bus is the bus number i.e "81"
+# Booleans include MajorAlert TBD etc.
+st.header("Check for Delays in Route")
+
+bus_routes = list(set(bus_routes))
+train_routes = list(set(train_routes))
+detail_alert = json.loads(baseline_alert_prep)
+
+# Python will break up a large list into parts. Note that these lists are still recognized as one making it easier to iterate.
+all_alerts_length = len(json.loads(baseline_alert_prep)["CTAAlerts"]["Alert"])
+
+st.write(f"There are :green[{all_alerts_length}] alerts.")
+
+# Will Outline Important Values that we can place in the for loop
+json.loads(baseline_alert_prep)["CTAAlerts"]["Alert"][0] # This is how we get to the list of alerts
+
+alert_headline = json.loads(baseline_alert_prep)["CTAAlerts"]["Alert"][0]["Headline"]
+alert_id = json.loads(baseline_alert_prep)["CTAAlerts"]["Alert"][0]["AlertId"]
+alert_service_id = json.loads(baseline_alert_prep)["CTAAlerts"]["Alert"][0]["ImpactedService"]["Service"][1]["ServiceId"]
+alert_service_name = json.loads(baseline_alert_prep)["CTAAlerts"]["Alert"][0]["ImpactedService"]["Service"][0]["ServiceName"]
+alert_service_stop_type = json.loads(baseline_alert_prep)["CTAAlerts"]["Alert"][0]["ImpactedService"]["Service"][0]["ServiceTypeDescription"]
+st.write(alert_service_stop_type)
+alert_severity_score = json.loads(baseline_alert_prep)["CTAAlerts"]["Alert"][0]["SeverityScore"]
+alert_severity_color = json.loads(baseline_alert_prep)["CTAAlerts"]["Alert"][0]["SeverityColor"]
+alert_severity_css = json.loads(baseline_alert_prep)["CTAAlerts"]["Alert"][0]["SeverityCSS"]
+alert_impact = json.loads(baseline_alert_prep)["CTAAlerts"]["Alert"][0]["Impact"]
+alert_severity_event_start = json.loads(baseline_alert_prep)["CTAAlerts"]["Alert"][0]["EventStart"]
+alert_severity_event_end = json.loads(baseline_alert_prep)["CTAAlerts"]["Alert"][0]["EventEnd"]
+alert_tbd = json.loads(baseline_alert_prep)["CTAAlerts"]["Alert"][0]["TBD"] #Boolean
+alert_major_event_end = json.loads(baseline_alert_prep)["CTAAlerts"]["Alert"][0]["EventEnd"]
+alert_url = json.loads(baseline_alert_prep)["CTAAlerts"]["Alert"][0]["AlertURL"]["#cdata-section"]
+alert_vehicle_desc = json.loads(baseline_alert_prep)["CTAAlerts"]["Alert"][0]["ImpactedService"]["Service"][0]["ServiceTypeDescription"]
+#alert_service_name = json.loads(baseline_alert_prep)["CTAAlerts"]["Alert"][0]["ImpactedService"]["Service"][0]["ServiceName"]
+alert_backcolor = json.loads(baseline_alert_prep)["CTAAlerts"]["Alert"][0]["ImpactedService"]["Service"][0]["ServiceBackColor"]
+alert_service_url = json.loads(baseline_alert_prep)["CTAAlerts"]["Alert"][0]["ImpactedService"]["Service"][0]["ServiceURL"]["#cdata-section"]
+
+
+# Descriptions Will Come Last
+alert_short_description = json.loads(baseline_alert_prep)["CTAAlerts"]["Alert"][0]["ShortDescription"]
+alert_full_description = json.loads(baseline_alert_prep)["CTAAlerts"]["Alert"][0]["FullDescription"]["#cdata-section"]
+
+
+st.header("ServiceID Test 🧠")
+#st.write(json.loads(baseline_alert_prep)["CTAAlerts"]["Alert"][0]["ImpactedService"]["Service"][1]["ServiceId"])
+
+st.write(detail_alert, unsafe_allow_html= True)
+
+# Need to Find the Alerts for the route 
+# Bus for loop
+
+train_bus_list = train_routes + bus_routes
+st.write(all_alerts_length)
+st.header("Bus and Trains on Route 🚌🚄")
+st.write(train_bus_list)
+
+# SPECIFIC ROUTE 👑==========================================================
+for alert_num in range(all_alerts_length):
+    try:
+        alert_ser_id = json.loads(baseline_alert_prep)["CTAAlerts"]["Alert"][alert_num]["ImpactedService"]["Service"][1]["ServiceId"]
+        
+        for route in train_bus_list:
+            
+            if alert_ser_id == route:
+            
+            
+                try:
+                    
+                    # We can use alert ser for apples to apples comparison but we will used the detail one to display the info
+                    # Isolating because alert_ser_id is easier to work with making it special 
+                    alert_ser_id = json.loads(baseline_alert_prep)["CTAAlerts"]["Alert"][alert_num]["ImpactedService"]["Service"][1]["ServiceId"]
+                    # Note we will use Service Name instead: alert_service_name
+                    
+                    alert_headline = json.loads(baseline_alert_prep)["CTAAlerts"]["Alert"][alert_num]["Headline"]
+                    alert_id = json.loads(baseline_alert_prep)["CTAAlerts"]["Alert"][alert_num]["AlertId"]
+                    alert_service_id = json.loads(baseline_alert_prep)["CTAAlerts"]["Alert"][alert_num]["ImpactedService"]["Service"][1]["ServiceId"]
+                    alert_service_stop_type = json.loads(baseline_alert_prep)["CTAAlerts"]["Alert"][alert_num]["ImpactedService"]["Service"][0]["ServiceTypeDescription"]
+                    alert_vehicle_desc = json.loads(baseline_alert_prep)["CTAAlerts"]["Alert"][alert_num]["ImpactedService"]["Service"][0]["ServiceTypeDescription"]
+                    alert_service_name = json.loads(baseline_alert_prep)["CTAAlerts"]["Alert"][alert_num]["ImpactedService"]["Service"][1]["ServiceName"]
+                    alert_severity_score = json.loads(baseline_alert_prep)["CTAAlerts"]["Alert"][alert_num]["SeverityScore"]
+                    alert_severity_color = json.loads(baseline_alert_prep)["CTAAlerts"]["Alert"][alert_num]["SeverityColor"]
+                    alert_severity_css = json.loads(baseline_alert_prep)["CTAAlerts"]["Alert"][alert_num]["SeverityCSS"]
+                    alert_impact = json.loads(baseline_alert_prep)["CTAAlerts"]["Alert"][alert_num]["Impact"]
+                    alert_severity_event_start = json.loads(baseline_alert_prep)["CTAAlerts"]["Alert"][alert_num]["EventStart"]
+                    alert_severity_event_end = json.loads(baseline_alert_prep)["CTAAlerts"]["Alert"][alert_num]["EventEnd"]
+                    alert_tbd = json.loads(baseline_alert_prep)["CTAAlerts"]["Alert"][alert_num]["TBD"] #Boolean
+                    alert_major_event_end = json.loads(baseline_alert_prep)["CTAAlerts"]["Alert"][alert_num]["EventEnd"]
+                    alert_url = json.loads(baseline_alert_prep)["CTAAlerts"]["Alert"][alert_num]["AlertURL"]["#cdata-section"]
+                    alert_vehicle_desc = json.loads(baseline_alert_prep)["CTAAlerts"]["Alert"][alert_num]["ImpactedService"]["Service"][0]["ServiceTypeDescription"]
+                    #alert_service_name = json.loads(baseline_alert_prep)["CTAAlerts"]["Alert"][alert_num]["ImpactedService"]["Service"][0]["ServiceName"]
+                    alert_backcolor = json.loads(baseline_alert_prep)["CTAAlerts"]["Alert"][alert_num]["ImpactedService"]["Service"][0]["ServiceBackColor"]
+                    alert_service_url = json.loads(baseline_alert_prep)["CTAAlerts"]["Alert"][alert_num]["ImpactedService"]["Service"][0]["ServiceURL"]["#cdata-section"]
+                    
+                    
+                    alert_short_description = json.loads(baseline_alert_prep)["CTAAlerts"]["Alert"][alert_num]["ShortDescription"]
+                    alert_full_description = json.loads(baseline_alert_prep)["CTAAlerts"]["Alert"][alert_num]["FullDescription"]["#cdata-section"]
+                
+                    st.divider()
+                    st.subheader(alert_headline)
+                    st.write(f"Alert ID: {alert_id}")
+                    st.write(f"{alert_service_name} - {alert_ser_id} {alert_service_stop_type}")
+                    st.write(f"Severity score: {alert_severity_score}. SEVERITY: {alert_severity_css}.")
+                    st.write(f"Alert severity start date and time: {alert_severity_event_start}")
+                    st.write(f"Alert end date and time: {alert_severity_event_end}")
+                    
+                    with st.expander("Click to see detailed alerts."):
+                        st.subheader("Basic Alert Description")
+                        st.write(alert_short_description, unsafe_allow_html= True)
+                        
+                        st.subheader("Detailed Alert Description")
+                        st.write(alert_full_description, unsafe_allow_html= True)
+                        st.write(f"CTA official webpage concerning this alert. [Link]({alert_service_url}) to page.")
+                    
+                    st.divider()
+                    
+                except:
+                    pass
+        
+        else:
+            pass    
+    except:
+        pass
+
+
+
+
+# ================================================================================
+st.header("ALL RESULTS IN JSON")
+# Back up of lenghth that makes this code possible
+# all_alerts_length = len(json.loads(baseline_alert_prep)["CTAAlerts"]["Alert"])
+    
+for alert_num in range(all_alerts_length):
+        #ser_id = json.loads(baseline_alert_prep)["CTAAlerts"]["Alert"][alert_num]["ImpactedService"]["Service"][1]["ServiceId"]
+        # For some reason the above line of code gives issues. ^^^^^^
+        
+        try:
+            
+            # We can use alert ser for apples to apples comparison but we will used the detail one to display the info
+            # Isolating because alert_ser_id is easier to work with making it special 
+            alert_ser_id = json.loads(baseline_alert_prep)["CTAAlerts"]["Alert"][alert_num]["ImpactedService"]["Service"][1]["ServiceId"]
+            # Note we will use Service Name instead: alert_service_name
+            
+            alert_headline = json.loads(baseline_alert_prep)["CTAAlerts"]["Alert"][alert_num]["Headline"]
+            alert_id = json.loads(baseline_alert_prep)["CTAAlerts"]["Alert"][alert_num]["AlertId"]
+            alert_service_id = json.loads(baseline_alert_prep)["CTAAlerts"]["Alert"][alert_num]["ImpactedService"]["Service"][1]["ServiceId"]
+            alert_service_stop_type = json.loads(baseline_alert_prep)["CTAAlerts"]["Alert"][alert_num]["ImpactedService"]["Service"][0]["ServiceTypeDescription"]
+            alert_vehicle_desc = json.loads(baseline_alert_prep)["CTAAlerts"]["Alert"][alert_num]["ImpactedService"]["Service"][0]["ServiceTypeDescription"]
+            alert_service_name = json.loads(baseline_alert_prep)["CTAAlerts"]["Alert"][alert_num]["ImpactedService"]["Service"][1]["ServiceName"]
+            alert_severity_score = json.loads(baseline_alert_prep)["CTAAlerts"]["Alert"][alert_num]["SeverityScore"]
+            alert_severity_color = json.loads(baseline_alert_prep)["CTAAlerts"]["Alert"][alert_num]["SeverityColor"]
+            alert_severity_css = json.loads(baseline_alert_prep)["CTAAlerts"]["Alert"][alert_num]["SeverityCSS"]
+            alert_impact = json.loads(baseline_alert_prep)["CTAAlerts"]["Alert"][alert_num]["Impact"]
+            alert_severity_event_start = json.loads(baseline_alert_prep)["CTAAlerts"]["Alert"][alert_num]["EventStart"]
+            alert_severity_event_end = json.loads(baseline_alert_prep)["CTAAlerts"]["Alert"][alert_num]["EventEnd"]
+            alert_tbd = json.loads(baseline_alert_prep)["CTAAlerts"]["Alert"][alert_num]["TBD"] #Boolean
+            alert_major_event_end = json.loads(baseline_alert_prep)["CTAAlerts"]["Alert"][alert_num]["EventEnd"]
+            alert_url = json.loads(baseline_alert_prep)["CTAAlerts"]["Alert"][alert_num]["AlertURL"]["#cdata-section"]
+            alert_vehicle_desc = json.loads(baseline_alert_prep)["CTAAlerts"]["Alert"][alert_num]["ImpactedService"]["Service"][0]["ServiceTypeDescription"]
+            #alert_service_name = json.loads(baseline_alert_prep)["CTAAlerts"]["Alert"][alert_num]["ImpactedService"]["Service"][0]["ServiceName"]
+            alert_backcolor = json.loads(baseline_alert_prep)["CTAAlerts"]["Alert"][alert_num]["ImpactedService"]["Service"][0]["ServiceBackColor"]
+            alert_service_url = json.loads(baseline_alert_prep)["CTAAlerts"]["Alert"][alert_num]["ImpactedService"]["Service"][0]["ServiceURL"]["#cdata-section"]
+            
+            
+            alert_short_description = json.loads(baseline_alert_prep)["CTAAlerts"]["Alert"][alert_num]["ShortDescription"]
+            alert_full_description = json.loads(baseline_alert_prep)["CTAAlerts"]["Alert"][alert_num]["FullDescription"]["#cdata-section"]
+        
+            st.divider()
+            st.subheader(alert_headline)
+            st.write(f"Alert ID: {alert_id}")
+            st.write(f"{alert_service_name} - {alert_ser_id} {alert_service_stop_type}")
+            st.write(f"Severity score: {alert_severity_score}. SEVERITY: {alert_severity_css}.")
+            st.write(f"Alert severity start date and time: {alert_severity_event_start}")
+            st.write(f"Alert end date and time: {alert_severity_event_end}")
+            
+            with st.expander("Click to see detailed alerts."):
+                st.subheader("Basic Alert Description")
+                st.write(alert_short_description, unsafe_allow_html= True)
+                
+                st.subheader("Detailed Alert Description")
+                st.write(alert_full_description, unsafe_allow_html= True)
+                st.write(f"CTA official webpage concerning this alert. [Link]({alert_service_url}) to page.")
+            
+            st.divider()
+            
+        except:
+            pass
+            
+        
+        
+        
+            
+    
+
+    
+
+
+
+# TODO 
+# Make a unique list of bus numbers seperate list for train numbers in route used 
+# Make two sets of unique list for trains and buses affected a long with information will be dictionary set of lists 
+# For matches give alerts 
+
+# Seperate section for all alerts
 
 
 
@@ -461,6 +884,8 @@ Things to do next.
 3. Check the list of routes impacted by delays 
 4. Show affected routes and details about the impact. Also have a section where users can see non-pertinent impacted routes.
 5. Work on mapping.
+6. Make seperate page for functions to import.
+7. Create page for delays and closures CTA wide. Credit page also.
 
 Alert API Documentation
 https://www.transitchicago.com/developers/alerts/
@@ -498,9 +923,12 @@ Specify any combination by separating multiple
 terms with commas (no spaces). Default is
 “bus,rail,systemwide”.
 
-Chicago Data Portal 
+Chicago Data Portal Train
 https://data.cityofchicago.org/Transportation/CTA-System-Information-List-of-L-Stops/8pix-ypme/about_data
 
+
+Chicago Data Portal Bus
+https://data.cityofchicago.org/Transportation/CTA-Bus-Stops/hvnx-qtky
 
 """
 

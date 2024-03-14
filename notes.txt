@@ -5,3 +5,18 @@ https://developers.google.com/maps/documentation/maps-static/overview
 CessiumJS Maps
 https://discuss.streamlit.io/t/display-a-cesiumjs-3d-map-in-a-streamlit-web-app/19993
 
+
+
+
+
+Sources 
+Chicago Data Portal Train
+https://data.cityofchicago.org/Transportation/CTA-System-Information-List-of-L-Stops/8pix-ypme/about_data
+
+
+Chicago Data Portal Bus
+https://data.cityofchicago.org/Transportation/CTA-Bus-Stops/hvnx-qtky
+
+
+Alert API Documentation
+https://www.transitchicago.com/developers/alerts/
