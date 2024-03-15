@@ -5,8 +5,11 @@ https://developers.google.com/maps/documentation/maps-static/overview
 CessiumJS Maps
 https://discuss.streamlit.io/t/display-a-cesiumjs-3d-map-in-a-streamlit-web-app/19993
 
+GMaps Routes Documentation 
+https://github.com/googlemaps/google-maps-services-python
 
-
+GMaps Direction Documentation
+https://developers.google.com/maps/documentation/directions/get-directions#alternatives
 
 
 Sources 

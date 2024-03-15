@@ -28,25 +28,6 @@ from streamlit_folium import st_folium
 
 st.set_option('deprecation.showPyplotGlobalUse', False)
 
-# CTA Train Stops is an API That Does Not Need a key to access
-cta_train_stops = requests.get("https://data.cityofchicago.org/resource/8pix-ypme.csv")
-cta_train_stops = cta_train_stops.content
-df_train = pd.read_csv(io.StringIO(cta_train_stops.decode("utf-8")))
-
-st.subheader("Train Data")
-df_train
-
-# df_train_unique = df_train.copy()
-# df_train_unique = df_train_unique.drop_duplicates("stop_name")
-# df_train_unique
-
-# CTA Bus Stops No Key Needed
-cta_bus_stops = requests.get("https://data.cityofchicago.org/resource/qs84-j7wh.csv")
-cta_bus_stops = cta_bus_stops.content
-df_bus = pd.read_csv(io.StringIO(cta_bus_stops.decode("utf-8")))
-
-st.subheader("Bus Data")
-df_bus
 
 
 
@@ -56,18 +37,6 @@ now = dt.datetime.now()
 # Lat is North and South. Long is east and west. Latitude comes first.
 chicago_coordinates = (41.8781, -87.6298)
 
-# Obselete code that only worked for propper SSL certificates
-# def get_json_from_link(url):
-#     """Can turn link into a readable JSON format."""
-    
-#     #Good code preserved =======
-#     ssl._create_default_https_context = ssl._create_unverified_context
-    
-#     response = urlopen(url)
-#     data = response.read().decode("utf-8")
-#     return json.loads(data)
-    #Preserve==========
-    
    
     
 
@@ -139,21 +108,7 @@ def retrieve_cta_route_alerts_specified(route_id):
     return base_url
 
 # TRAVEL APIs ================================================================================================ 🚌🚇
-# Bus API
-st.subheader("Bus JSON")
-# TO get this working we need to use two functions
-# retrieve_cta_bus_json
-# get_json_from_link
-base_bus_json_prep_link = retrieve_cta_bus_json(cta_bus_tracker_key, "77")
-baseline_bus = get_json_from_link(base_bus_json_prep_link)
-st.write(baseline_bus, unsafe_allow_html= True)
 
-
-# Train API
-st.subheader("Train JSON")
-base_train_json_prep_link = retrieve_cta_train_json(cta_train_tracker_key, "40190")
-baseline_train = get_json_from_link(base_train_json_prep_link)
-st.write(baseline_train, unsafe_allow_html= True)
 
 # General API
 st.subheader("CTA Alert JSON")
@@ -204,43 +159,21 @@ end_address = json.loads(directions_json)[0]["legs"][0]["end_address"]
 
 
 # Testing areas ============================================
-st.write(json.loads(directions_json)[0]["legs"][0])
+# st.write(json.loads(directions_json)[0]["legs"][0])
 
-st.subheader("Important Steps JSON")
-st.write(json.loads(directions_json))
+# st.subheader("Important Steps JSON")
+# st.write(json.loads(directions_json))
 
-# Need Steps 
-st.subheader("Route Step JSON")
-route_steps = json.loads(directions_json)[0]["legs"][0]["steps"] 
-st.write(route_steps)
+# # Need Steps 
+# st.subheader("Route Step JSON")
+# route_steps = json.loads(directions_json)[0]["legs"][0]["steps"] 
+# st.write(route_steps)
 
 # Basic Instructions 
 # For everything step related the 0 will have to be replaced with an actual counter in the range.
 # This will enable it to iterate over the steps.
 
 # NOTE 
-# BETA TESTING VAL
-# Now by looking at the JSON it appears that (direction_json)[0] is constant
-# It seems that ["legs"][0] is constant as well.
-# The only thing that we will have to iterate over must be ["steps"] this will be replaced by a num as we iterate over the range
-
-
-step_travel_method = json.loads(directions_json)[0]["legs"][0]["steps"][0]["travel_mode"]
-step_instruction = json.loads(directions_json)[0]["legs"][0]["steps"][0]["html_instructions"]
-step_distance = json.loads(directions_json)[0]["legs"][0]["steps"][0]["distance"]["text"]
-step_duration = json.loads(directions_json)[0]["legs"][0]["steps"][0]["duration"]["text"]
-step_start_lat = json.loads(directions_json)[0]["legs"][0]["steps"][0]["start_location"]["lat"]
-step_start_lng = json.loads(directions_json)[0]["legs"][0]["steps"][0]["start_location"]["lng"]
-step_end_lat = json.loads(directions_json)[0]["legs"][0]["steps"][0]["end_location"]["lat"]
-step_end_lng = json.loads(directions_json)[0]["legs"][0]["steps"][0]["end_location"]["lng"]
-
-# Detail Section That Gives More Info on HTML Directions etc. 
-# The detail gives you where to turn. This is essential for useful instructions.Must come after the simple step instructions.
-# Will also label the distance under the detail nomenclature for organizational purposes.
-step_instruction_detail = json.loads(directions_json)[0]["legs"][0]["steps"][0]["steps"][0]["html_instructions"]
-step_instruction_detail_distance = json.loads(directions_json)[0]["legs"][0]["steps"][0]["steps"][0]["distance"]["text"]
-step_instruction_detail_duration = json.loads(directions_json)[0]["legs"][0]["steps"][0]["steps"][0]["duration"]["text"]
-
 
 
 # Now we should be able to see how many steps we have by getting the length of the list.
@@ -263,19 +196,20 @@ def get_travel_information():
     # It appears that detail comes before the simple direction.
     step_instruction_detail = json.loads(directions_json)[0]["legs"][0]["steps"][0]["steps"][num]["html_instructions"]
     
-    # The below two lines can cause an error. Replacing them with try.
-    # step_instruction_detail_distance = json.loads(directions_json)[0]["legs"][0]["steps"][0]["steps"][num]["distance"]["text"]
-    # step_instruction_detail_duration = json.loads(directions_json)[0]["legs"][0]["steps"][0]["steps"][num]["duration"]["text"]
-    
     try:
         step_instruction_detail_distance = json.loads(directions_json)[0]["legs"][0]["steps"][0]["steps"][num]["distance"]["text"]
     except:
-        step_instruction_detail_distance = ":orange[(distance not specified)]."
+        step_instruction_detail_distance = "Not located."
     
     try:
         step_instruction_detail_duration = json.loads(directions_json)[0]["legs"][0]["steps"][0]["steps"][num]["duration"]["text"]
     except:
-        step_instruction_detail_duration = ":orange[(estimate not available)]."
+        step_instruction_detail_duration = "Not Located."
+        
+    
+    # These cause errors without try
+    # step_instruction_detail_distance = json.loads(directions_json)[0]["legs"][0]["steps"][0]["steps"][num]["distance"]["text"]
+    # step_instruction_detail_duration = json.loads(directions_json)[0]["legs"][0]["steps"][0]["steps"][num]["duration"]["text"]
     
     
     return step_travel_method, step_instruction, step_distance, step_duration, step_start_lat, step_start_lng, step_end_lat, step_end_lng, step_instruction_detail, step_instruction_detail_distance, step_instruction_detail_duration
@@ -318,38 +252,14 @@ for num in range(num_steps):
     step_end_lng = json.loads(directions_json)[0]["legs"][0]["steps"][num]["end_location"]["lng"]
     
     # Detail instructions for the for loop.
-    # It appears that detail comes before the simple direction.
-    # Code below does not iterate over the detailed
-    #step_instruction_detail = json.loads(directions_json)[0]["legs"][0]["steps"][0]["steps"][num]["html_instructions"]
-    #step_instruction_detail = json.loads(directions_json)[0]["legs"][0]["steps"][0]["steps"][num]["html_instructions"]
+    # It appears that detail comes before the simple direction. Wil have simple come before complex.
     step_instruction_detail = json.loads(directions_json)[0]["legs"][0]["steps"][num]["html_instructions"]
     
     
     step_instruction_detail_distance = json.loads(directions_json)[0]["legs"][0]["steps"][0]["steps"][num]["distance"]["text"]
     step_instruction_detail_duration = json.loads(directions_json)[0]["legs"][0]["steps"][0]["steps"][num]["duration"]["text"]
     
-    # Turn step attempt 
-    # Need to determine the lengths of embedded steps
-    # Not every step will have this so we must use try keyword
-    # try:
-    #     turn_step_length = len(json.loads(directions_json)[0]["legs"][0]["steps"][num]["steps"])
-    #     #st.write("⭐ " + json.loads(directions_json)[0]["legs"][0]["steps"][0]["steps"][0]["html_instructions"], unsafe_allow_html= True)
-    #     st.write(f"Pre-requisute Ministeps For Step #{num + 1} 🍬🍭")
-    #     for sub_step in range(turn_step_length):
-    #         sub_instruction = json.loads(directions_json)[0]["legs"][0]["steps"][num]["steps"][sub_step]["html_instructions"]
-    #         st.write(f"•  {sub_instruction}", unsafe_allow_html = True)
-        
-    # except KeyError:
-    #     pass
-    
-    
-    
-    
-    # Get the Bus or Train Route
-    # BUS Route
-    
-    
-    
+ 
     # Current step and total steps
     # Need to add a 1 to compensate for the fact that python counts from 0.
     curr_step = num + 1
@@ -382,31 +292,14 @@ for num in range(num_steps):
             train_routes.append(short_route_name.split(" ", 1)[0])
     except:
         pass
-        
-    
-    
-    
-    #Good code
-    
-    # st.write(f"""{formatted_step} [{step_travel_method}] {step_instruction} {step_instruction_detail} for {step_instruction_detail_distance} which should
-    #          take approximately {step_instruction_detail_duration}.""",  unsafe_allow_html=True) # Steps out of order on this one.
-    
-    # Greater code======================================================
-    # Good Baseline but needs to be customized to avoid the API 's awkward phraseology.
-    # st.write(f"""{formatted_step} [{step_travel_method}] {step_instruction_detail} for {step_instruction_detail_distance}, which should
-    #          take approximately {step_instruction_detail_duration}. {step_instruction}.""",  unsafe_allow_html=True)
-    # ==============================================
+          
     
     
     # If Statement to determine the output 
     if step_travel_method == "WALKING":
         st.write(f"""{formatted_step} [{step_travel_method}🚶‍♂️] {step_instruction_detail} for {step_instruction_detail_distance}, which should
              take approximately {step_instruction_detail_duration}. {step_instruction}.""",  unsafe_allow_html=True)
-    # elif step_travel_method == "TRANSIT":
-    #     st.write(f"""{formatted_step} [{step_travel_method}] Proceed to the {step_instruction_detail} for {step_instruction_detail_distance}, which should
-    #          take approximately {step_instruction_detail_duration}. {step_instruction}.""",  unsafe_allow_html=True)
-        
-        
+  
     
     
     try:
@@ -420,11 +313,7 @@ for num in range(num_steps):
     except KeyError:
         pass
     
-    
-    
-    
-    # st.info(json.loads(directions_json)[0]["legs"][0]["steps"][num]["travel_mode"])
-    
+
     
     if json.loads(directions_json)[0]["legs"][0]["steps"][num]["travel_mode"] == "TRANSIT":
         # Now that we have established that the route is public transportation we can define
@@ -502,28 +391,12 @@ for num in range(num_steps):
     # We will use elif because we only want one of these stipulations to fire off. 
     
     
-    
-    # if step_travel_method == "WALKING":
-    #     st.success(step_travel_method)
-    #     st.write(f"""{formatted_step} [{step_travel_method}] {step_instruction_detail} for {step_instruction_detail_distance} which should
-    #             take approximately {step_instruction_detail_duration}. {step_instruction}.""",  unsafe_allow_html=True)
-    # if step_travel_method == "TRANSIT":
-    #     get_travel_information
-    #     st.header("Seperator 🎪")
-    #     st.info(step_travel_method)
-    #     public_transport_method_type = json.loads(directions_json)[0]["legs"][0]["steps"][0]["steps"][num]#["transit_details"]
-        
-    #     st.write(public_transport_method_type)
-        
-    
-    
-    
-    # Now we can try 
-
+ 
 st.divider()
 
 st.write(route_dict)
 
+# This gives us the Start and end location coordinates for directions 
 start_location_lat = json.loads(directions_json)[0]["legs"][0]["start_location"]["lat"]
 start_location_lng = json.loads(directions_json)[0]["legs"][0]["start_location"]["lng"]
 
@@ -673,34 +546,6 @@ detail_alert = json.loads(baseline_alert_prep)
 all_alerts_length = len(json.loads(baseline_alert_prep)["CTAAlerts"]["Alert"])
 
 st.write(f"There are :green[{all_alerts_length}] alerts.")
-
-# Will Outline Important Values that we can place in the for loop
-json.loads(baseline_alert_prep)["CTAAlerts"]["Alert"][0] # This is how we get to the list of alerts
-
-alert_headline = json.loads(baseline_alert_prep)["CTAAlerts"]["Alert"][0]["Headline"]
-alert_id = json.loads(baseline_alert_prep)["CTAAlerts"]["Alert"][0]["AlertId"]
-alert_service_id = json.loads(baseline_alert_prep)["CTAAlerts"]["Alert"][0]["ImpactedService"]["Service"][1]["ServiceId"]
-alert_service_name = json.loads(baseline_alert_prep)["CTAAlerts"]["Alert"][0]["ImpactedService"]["Service"][0]["ServiceName"]
-alert_service_stop_type = json.loads(baseline_alert_prep)["CTAAlerts"]["Alert"][0]["ImpactedService"]["Service"][0]["ServiceTypeDescription"]
-st.write(alert_service_stop_type)
-alert_severity_score = json.loads(baseline_alert_prep)["CTAAlerts"]["Alert"][0]["SeverityScore"]
-alert_severity_color = json.loads(baseline_alert_prep)["CTAAlerts"]["Alert"][0]["SeverityColor"]
-alert_severity_css = json.loads(baseline_alert_prep)["CTAAlerts"]["Alert"][0]["SeverityCSS"]
-alert_impact = json.loads(baseline_alert_prep)["CTAAlerts"]["Alert"][0]["Impact"]
-alert_severity_event_start = json.loads(baseline_alert_prep)["CTAAlerts"]["Alert"][0]["EventStart"]
-alert_severity_event_end = json.loads(baseline_alert_prep)["CTAAlerts"]["Alert"][0]["EventEnd"]
-alert_tbd = json.loads(baseline_alert_prep)["CTAAlerts"]["Alert"][0]["TBD"] #Boolean
-alert_major_event_end = json.loads(baseline_alert_prep)["CTAAlerts"]["Alert"][0]["EventEnd"]
-alert_url = json.loads(baseline_alert_prep)["CTAAlerts"]["Alert"][0]["AlertURL"]["#cdata-section"]
-alert_vehicle_desc = json.loads(baseline_alert_prep)["CTAAlerts"]["Alert"][0]["ImpactedService"]["Service"][0]["ServiceTypeDescription"]
-#alert_service_name = json.loads(baseline_alert_prep)["CTAAlerts"]["Alert"][0]["ImpactedService"]["Service"][0]["ServiceName"]
-alert_backcolor = json.loads(baseline_alert_prep)["CTAAlerts"]["Alert"][0]["ImpactedService"]["Service"][0]["ServiceBackColor"]
-alert_service_url = json.loads(baseline_alert_prep)["CTAAlerts"]["Alert"][0]["ImpactedService"]["Service"][0]["ServiceURL"]["#cdata-section"]
-
-
-# Descriptions Will Come Last
-alert_short_description = json.loads(baseline_alert_prep)["CTAAlerts"]["Alert"][0]["ShortDescription"]
-alert_full_description = json.loads(baseline_alert_prep)["CTAAlerts"]["Alert"][0]["FullDescription"]["#cdata-section"]
 
 
 st.header("ServiceID Test 🧠")
@@ -852,114 +697,6 @@ for alert_num in range(all_alerts_length):
         
             
     
-
-    
-
-
-
-# TODO 
-# Make a unique list of bus numbers seperate list for train numbers in route used 
-# Make two sets of unique list for trains and buses affected a long with information will be dictionary set of lists 
-# For matches give alerts 
-
-# Seperate section for all alerts
-
-
-
-"""
-TODO NOTE: 
-
-Things to do next.
-
-1. Make a for in range in loop for the number of steps. Have it write out in a readable format.
-2. Number the steps, and an emojji pertaining to the type of route that is being taken. A train emoji for train, bus for bus etc.
-3. Record the step number and the longitude at latitude in the dictionary. 
-4. Make a color coded map using folium where the icons/color for walking, busing, and taking the train are different. 
-5. Make the folium map. May have to use two lists for instructions.
-6. Show the static map side by side. 
-7. Find a way to utilize the dictionary (or lists if their creation is necessary) to get all of the buses and train routes in the trip. 
-8. Use the CTA buses and train APIs to inform users of any delays, utilizing colors for timeliness status.
-9. Add lottie file images.
-10. Add searchbars to make users be able to enter in the address that they want to see.
-11. Add a credit page.
-
-### IMPORTANT NEW NOTE 3/4/24
-1. Finish arrival first add headsign, route/line info, vehicle info (bus or train) ✅
-2. Replicate over to departure time. ✅
-3. Embellish instructions of the steps that involve bus or train. ✅
-4. Explore CTA bus and train APIs and documentation. (Postponed)
-
-# IMPORTANT NEW NOTE 3/4/24 -3/7/24 
-1. Explore bus/train documentation ✅ \n
-1B. Add CTA detail alert API
-2. Obtain list of bus/train routes used
-3. Check the list of routes impacted by delays 
-4. Show affected routes and details about the impact. Also have a section where users can see non-pertinent impacted routes.
-5. Work on mapping.
-6. Make seperate page for functions to import.
-7. Create page for delays and closures CTA wide. Credit page also.
-
-Alert API Documentation
-https://www.transitchicago.com/developers/alerts/
-
-
-"""
-
-"""
-Second Page Filter for Alerts
- 1-19 Accessibility and informational alerts
-This range includes alerts related to accessible paths, as well as special notes about service and
-information about added service.
- 20-39 Planned/anticipated events affecting bus and train service
-This range includes notices about planned work, service changes and reroutes that are
-anticipated (parade reroutes, for example) which potentially affect all users of a named service.
- 40-59 Minor delays and reroutes affecting bus and train service
-This range includes notices about unanticipated minor delays and reroutes that affect all users of
-a named service.
- 60-79 Significant delays and reroutes affecting bus and train service
-This range includes notices about unanticipated significant delays (sporadic or consistent) and
-reroutes that affect all users of a named service.
- 80-99 Major delays and service disruptions
-This range includes alerts about unanticipated major delays and service disruptions where a
-service is significantly impacted by an event, and considering service alternatives may be
-advisable
-
-
-type 
-Valid values for “type” include:
- bus
- rail
- station
- systemwide
-Specify any combination by separating multiple
-terms with commas (no spaces). Default is
-“bus,rail,systemwide”.
-
-Chicago Data Portal Train
-https://data.cityofchicago.org/Transportation/CTA-System-Information-List-of-L-Stops/8pix-ypme/about_data
-
-
-Chicago Data Portal Bus
-https://data.cityofchicago.org/Transportation/CTA-Bus-Stops/hvnx-qtky
-
-"""
-
-
-
-# What I tried earlier
-# for step in directions_result:
-#     st.write(step[0]["html_instructions"])
-    
-
-# for i in range (0, len (result['routes'][0]['legs'][0]['steps'])):
-#     j = json_result['routes'][0]['legs'][0]['steps'][i]['html_instructions'] 
-#     st.write(j)
-
-
-# chi_map = gmaps.figure(center = chicago_coordinates, zoom_level = 12)
-
-# st.map(chi_map)
-
 
 
 
