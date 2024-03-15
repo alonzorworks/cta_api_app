@@ -59,10 +59,10 @@ The my_functions page was where some of the main.py code was cut down to be more
 
 You may find that some of the distances and duration is replaced with an orange placeholder text. See code below. 
 
-try:
-        step_instruction_detail_distance = json.loads(directions_json)[0]["legs"][0]["steps"][0]["steps"][num]["distance"]["text"]
-    except:
-        step_instruction_detail_distance = ":orange[(distance not specified)]."
+        try:
+                step_instruction_detail_distance = json.loads(directions_json)[0]["legs"][0]["steps"][0]["steps"][num]["distance"]["text"]
+            except:
+                step_instruction_detail_distance = ":orange[(distance not specified)]."
     
     try:
         step_instruction_detail_duration = json.loads(directions_json)[0]["legs"][0]["steps"][0]["steps"][num]["duration"]["text"]
