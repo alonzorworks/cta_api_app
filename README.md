@@ -51,6 +51,9 @@ You will need to set up your config.py and .gitignore to prevent your keys from 
 # How The Project is Structured VERY IMPORTANT 
 All of the functionality is on the home.py file. 
 
+## When editing offline use the home_local.py file! 
+### There you can supply your own keys in the .gitignore config folder you set up.
+
 I used the main.py file for testing. However that page is a great resource for exploring JSONs and other data.
 
 The code should work out of the box after you setup your config and .gitignore with your access keys.

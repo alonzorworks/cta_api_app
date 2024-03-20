@@ -12,9 +12,7 @@ import json
 import urllib
 from urllib.request import urlopen
 import json
-# IMPORTANT NOTE: this page is for the online streamlit app where API keys are provided using the web interface.
-# If you need to provide your own keys using the .gitignore config use the local file.
-#from config import google_map_key   #, cta_bus_tracker_key, cta_train_tracker_key  ---> We only needed the GoogleMap Key Other APIs could be implemented for more information potentially
+from config import google_map_key   #, cta_bus_tracker_key, cta_train_tracker_key  ---> We only needed the GoogleMap Key Other APIs could be implemented for more information potentially
 import requests
 #Contigency url import
 import urllib.request as urlrq
