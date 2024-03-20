@@ -68,6 +68,7 @@ def retrieve_cta_route_alerts_all():
     base_url = "https://www.transitchicago.com/api/1.0/alerts.aspx?outputType=JSON"
     return base_url
 
+google_map_key = st.secrets["google_map_key"]
 
 gmaps = googlemaps.Client(key= google_map_key)
 
