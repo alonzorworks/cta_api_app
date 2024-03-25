@@ -29,6 +29,7 @@ https://github.com/googlemaps/google-maps-services-python
 GMaps Direction Documentation
 https://developers.google.com/maps/documentation/directions/get-directions#alternatives
 
+### For the home.py and home_local.py you should only need a Google API key and the free Google Alert API key. Exploration in other parts of the app will require all of the keys listed above. 🚨🚨
 
 GMap Developers explain how to get a paid google maps api key. The first link will walk you through the process.
 
